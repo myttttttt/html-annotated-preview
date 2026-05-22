@@ -630,7 +630,7 @@
     if (btn) {
       btn.classList.toggle("active", rectMode);
       btn.textContent = rectMode ? "✕ 退出框選 (持續中)" : "▭ 框選";
-      btn.title = rectMode ? "持續框選模式 — 撳 ESC 或者呢度退出" : "切換到矩形框選模式（可以連續落多個 rect）";
+      btn.title = rectMode ? "持續框選模式 — 按 ESC 或此處退出" : "切換到矩形框選模式（可以連續加入多個 rect）";
     }
   }
 
@@ -776,7 +776,7 @@
     const bar = document.createElement("div");
     bar.className = "ann-bar visible";  // always visible
     bar.innerHTML = `
-      <span class="ann-bar-hint" data-role="hint">💡 揀文字 或 撳「框選」標註區域</span>
+      <span class="ann-bar-hint" data-role="hint">💡 選取文字 或 按「框選」標註區域</span>
       <span class="ann-bar-count" data-role="count" style="display:none">0</span>
       <span data-role="label" style="display:none">annotations</span>
       <button data-action="rect-toggle" title="切換到矩形框選模式">▭ 框選</button>
@@ -941,9 +941,9 @@
       `**Source**: \`${p.doc.path}\``,
       `**Count**: ${p.annotations.length} new annotation(s)`,
       "",
-      "我用緊一份報告，喺 HTML preview 入面標註咗以下段落 + comment。",
-      "請就每個 annotation 跟進，順序作答；如果 comment 係問題就回答，係指示就執行。",
-      "（注意：之前 round 已 export 過嘅 annotation 唔會喺度，唔需要再處理。）",
+      "我正在處理一份報告，在 HTML preview 中標註了以下段落 + comment。",
+      "請就每個 annotation 跟進，按順序作答；如果 comment 是問題就回答，是指示就執行。",
+      "（注意：之前 round 已 export 過的 annotation 不會在此，無需再處理。）",
       "",
     ];
     p.annotations.forEach((a, i) => {

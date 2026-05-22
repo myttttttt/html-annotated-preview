@@ -2,21 +2,21 @@
 
 > **A Claude Code skill that lets you annotate anything Claude writes — reports, specs, plans, and live previews. Zero install, no extension, no MCP.**
 >
-> 為 Claude Code 而設嘅 annotation skill — 報告、spec、plan、live preview 任你 highlight 標註，一鍵餵返 Claude 繼續 iterate。免裝 extension，免 MCP。
+> 為 Claude Code 而設的 annotation skill — 報告、spec、plan、live preview 任你 highlight 標註，一鍵送回 Claude 繼續 iterate。免裝 extension，免 MCP。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Why this exists · 點解要呢個 skill
+## Why this exists · 為甚麼要這個 skill
 
 **EN** — When you iterate on something Claude writes — a research report, a spec, a website — the default loop is to screenshot each issue and describe it separately. That's slow, lossy, and impossible to batch. This skill lets you mark up everything in one pass on a rendered HTML preview, then paste a single structured prompt back to Claude.
 
-**中文** — Iterate Claude 寫嘅嘢嗰陣，預設 loop 係**逐個位截圖 + 逐個描述**。慢、容易漏、又難 batch。呢個 skill 畀你一次過喺 HTML preview 標晒所有想改嘅地方，再一鍵 paste 一個結構化 prompt 返 Claude。
+**中文** — 在 iterate Claude 寫的內容時（報告、spec、網站），預設 loop 是**逐個位截圖 + 逐個描述**。慢、容易遺漏、又難以 batch 處理。這個 skill 讓你一次過在 HTML preview 上標註所有想改的地方，再一鍵 paste 一個結構化 prompt 回 Claude。
 
 ---
 
-## How it works · 點點玩
+## How it works · 運作流程
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌──────────────────┐
@@ -96,7 +96,7 @@ open your-report.html      # macOS
 
 You should now see:
 - The report rendered in GitHub-flavored HTML
-- A bottom bar with `💡 揀文字 或 撳「框選」標註區域`
+- A bottom bar with `💡 選文字 或 按「框選」標註區域`
 - A `▭ 框選` button to toggle rectangle mode
 
 Highlight a sentence, type a comment, hit Enter. Then click **Copy N new** and paste anywhere — Claude Code, Claude Desktop, web Claude. It's all just clipboard markdown.

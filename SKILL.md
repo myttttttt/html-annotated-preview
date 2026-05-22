@@ -1,6 +1,6 @@
 ---
 name: html-annotated-preview
-description: Inject a vanilla-JS annotation overlay into any HTML report or live web preview. Select text or click-drag a region → bubble for comments → yellow highlight saved to LocalStorage. One-click "Copy as Prompt" exports a structured markdown bundle to clipboard for the user to paste back to Claude Code. Tracks status per annotation (active / exported / done) so successive iteration rounds don't duplicate work — click any exported highlight to reactivate it. Triggers — English: "annotate this html", "open with annotations", "html annotation overlay", "add annotations to the preview", "preview with comments". 中文觸發：「annotation skill」、「html 評論 skill」、「網站評論 skill」、「畀我喺 HTML 入面標註」、「open annotated」、「網頁標註」。Auto-chain — whenever a markdown report is rendered to HTML for browser preview, run `inject.py` on the result so the user can annotate inline.
+description: Inject a vanilla-JS annotation overlay into any HTML report or live web preview. Select text or click-drag a region → bubble for comments → yellow highlight saved to LocalStorage. One-click "Copy as Prompt" exports a structured markdown bundle to clipboard for the user to paste back to Claude Code. Tracks status per annotation (active / exported / done) so successive iteration rounds don't duplicate work — click any exported highlight to reactivate it. Triggers — English: "annotate this html", "open with annotations", "html annotation overlay", "add annotations to the preview", "preview with comments". 中文觸發：「annotation skill」、「html 評論 skill」、「網站評論 skill」、「讓我在 HTML 裡面標註」、「open annotated」、「網頁標註」。Auto-chain — whenever a markdown report is rendered to HTML for browser preview, run `inject.py` on the result so the user can annotate inline.
 ---
 
 # html-annotated-preview
@@ -60,7 +60,7 @@ When Claude delivers a markdown report or analysis, it should fold steps 1–3 i
 
 **Manual triggers**:
 - "annotate this html" / "open with annotations"
-- 「畀我喺 HTML 入面標註」/「open annotated」
+- 「讓我在 HTML 裡面標註」/「open annotated」
 
 **Skip** for: short snippets, READMEs, CLAUDE.md / SKILL.md, or any source-of-truth document where annotations would pollute the canonical file.
 
