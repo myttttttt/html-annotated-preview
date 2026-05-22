@@ -1,0 +1,413 @@
+/* ============================================================
+ * html-annotated-preview — annotation overlay
+ * Aesthetic: subordinate to host page. Yellow highlight only.
+ * No chrome unless user is annotating or annotations exist.
+ * ============================================================ */
+
+:root {
+  --ann-yellow: #fde68a;
+  --ann-yellow-hover: #fcd34d;
+  --ann-green: #86efac;
+  --ann-green-hover: #6ee7b7;
+  --ann-fg: #422006;
+  --ann-fg-green: #052e16;
+  --ann-bubble-bg: #1c1917;
+  --ann-bubble-fg: #fafaf9;
+  --ann-bar-bg: #0a0a0a;
+  --ann-bar-fg: #ffffff;
+  --ann-marker: #b45309;
+  --ann-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Highlight on annotated range */
+mark.ann-mark {
+  background: var(--ann-yellow);
+  color: inherit;
+  padding: 1px 1px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+mark.ann-mark:hover { background: var(--ann-yellow-hover); }
+
+mark.ann-mark.done {
+  background: var(--ann-green);
+}
+mark.ann-mark.done:hover {
+  background: var(--ann-green-hover);
+}
+
+/* Exported — already sent to Claude; faded but preserved as history */
+mark.ann-mark.exported {
+  background: rgba(253, 230, 138, 0.35);
+  color: inherit;
+  opacity: 0.7;
+  text-decoration: underline dotted rgba(180, 83, 9, 0.45);
+  text-underline-offset: 2px;
+}
+mark.ann-mark.exported:hover {
+  background: rgba(253, 230, 138, 0.55);
+  opacity: 1;
+}
+
+/* Fallback — XPath failed but quote-text search succeeded; subtle indicator */
+mark.ann-mark.fallback {
+  border-bottom: 1px dashed rgba(180, 83, 9, 0.55);
+}
+
+/* ============================================================
+ * Rectangle selection mode — for annotating design regions
+ * ============================================================ */
+.ann-rect-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 9990;
+}
+.ann-rect {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(253, 230, 138, 0.18);
+  border: 2px solid var(--ann-marker);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+.ann-rect:hover {
+  background: rgba(253, 230, 138, 0.32);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.18);
+}
+.ann-rect.done {
+  background: rgba(134, 239, 172, 0.20);
+  border-color: #16a34a;
+}
+.ann-rect.done:hover {
+  background: rgba(134, 239, 172, 0.35);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+.ann-rect.exported {
+  background: rgba(253, 230, 138, 0.06);
+  border-color: rgba(180, 83, 9, 0.45);
+  border-style: dashed;
+  opacity: 0.65;
+}
+.ann-rect.exported:hover {
+  background: rgba(253, 230, 138, 0.18);
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12);
+}
+.ann-rect.exported .ann-rect-badge {
+  background: rgba(180, 83, 9, 0.55);
+}
+.ann-rect-draft {
+  background: rgba(253, 230, 138, 0.10);
+  border: 2px dashed var(--ann-marker);
+  pointer-events: none;
+}
+.ann-rect-badge {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--ann-marker);
+  color: #fff;
+  font: 700 11px/22px ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+  box-shadow: var(--ann-shadow);
+  user-select: none;
+}
+.ann-rect.done .ann-rect-badge {
+  background: #16a34a;
+}
+
+/* When rect mode is on, change cursor + disable text selection on body */
+body.ann-rect-mode,
+body.ann-rect-mode * {
+  cursor: crosshair !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+body.ann-rect-mode .ann-bubble,
+body.ann-rect-mode .ann-bubble *,
+body.ann-rect-mode .ann-bar,
+body.ann-rect-mode .ann-bar * {
+  cursor: auto !important;
+  user-select: auto !important;
+  -webkit-user-select: auto !important;
+}
+
+/* Bar button "active" state for rect toggle */
+.ann-bar button.active {
+  background: var(--ann-marker) !important;
+  color: #fff !important;
+  border-color: var(--ann-marker) !important;
+}
+
+/* Pending mark — shown while user is typing the comment */
+mark.ann-pending {
+  background: rgba(253, 230, 138, 0.55);
+  color: inherit;
+  padding: 1px 1px;
+  border-radius: 2px;
+  outline: 1.5px dashed #b45309;
+  outline-offset: 0;
+}
+
+/* Gutter marker in left margin */
+.ann-gutter-marker {
+  position: absolute;
+  left: -28px;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ann-marker);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, sans-serif;
+  pointer-events: none;
+  opacity: 0.85;
+}
+@media (max-width: 900px) {
+  .ann-gutter-marker { display: none; }
+}
+
+/* Selection bubble — appears above selected text */
+.ann-bubble {
+  position: absolute;
+  z-index: 9999;
+  background: var(--ann-bubble-bg);
+  color: var(--ann-bubble-fg);
+  border-radius: 6px;
+  box-shadow: var(--ann-shadow);
+  padding: 10px;
+  min-width: 280px;
+  max-width: 360px;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  font-size: 13px;
+  animation: ann-bubble-in 0.12s ease-out;
+}
+@keyframes ann-bubble-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ann-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 16px;
+  border: 6px solid transparent;
+  border-top-color: var(--ann-bubble-bg);
+  border-bottom: 0;
+}
+
+.ann-bubble textarea {
+  width: 100%;
+  min-height: 60px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: var(--ann-bubble-fg);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.ann-bubble textarea:focus {
+  border-color: rgba(255,255,255,0.4);
+}
+
+.ann-bubble .ann-bubble-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+.ann-bubble .ann-bubble-actions .left { font-size: 11px; opacity: 0.55; }
+
+.ann-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--ann-bubble-fg);
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.ann-btn:hover { background: rgba(255,255,255,0.08); }
+.ann-btn-primary {
+  background: var(--ann-yellow);
+  color: var(--ann-fg);
+  border-color: var(--ann-yellow);
+  font-weight: 600;
+}
+.ann-btn-primary:hover { background: var(--ann-yellow-hover); }
+.ann-btn-danger { color: #fca5a5; border-color: rgba(252,165,165,0.3); }
+.ann-btn-danger:hover { background: rgba(252,165,165,0.1); }
+
+.ann-btn-done {
+  color: var(--ann-green);
+  border-color: rgba(134, 239, 172, 0.4);
+}
+.ann-btn-done:hover { background: rgba(134, 239, 172, 0.12); }
+.ann-btn-done.active {
+  background: var(--ann-green);
+  color: var(--ann-fg-green);
+  border-color: var(--ann-green);
+  font-weight: 600;
+}
+
+.ann-btn-reactivate {
+  color: var(--ann-yellow);
+  border-color: rgba(253, 230, 138, 0.45);
+}
+.ann-btn-reactivate:hover { background: rgba(253, 230, 138, 0.14); }
+
+.ann-btn-css {
+  color: #c4b5fd;
+  border-color: rgba(196, 181, 253, 0.4);
+}
+.ann-btn-css:hover { background: rgba(196, 181, 253, 0.12); }
+.ann-btn-css.active {
+  background: #a78bfa;
+  color: #1e1b4b;
+  border-color: #a78bfa;
+  font-weight: 600;
+}
+
+/* CSS live-edit panel inside bubble */
+.ann-bubble-css {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 8px;
+}
+.ann-bubble-css-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: var(--ann-bubble-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.4;
+}
+.ann-bubble-css-input:focus {
+  border-color: rgba(196, 181, 253, 0.6);
+}
+
+/* Bottom command bar — only shown when annotations exist */
+.ann-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ann-bar-bg);
+  color: var(--ann-bar-fg);
+  border-radius: 8px;
+  box-shadow: var(--ann-shadow);
+  padding: 8px 12px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+  z-index: 9998;
+  max-width: calc(100vw - 32px);
+}
+.ann-bar.visible { display: flex; flex-wrap: nowrap; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .ann-bar [data-role="label"] { display: none; }
+  .ann-bar { padding: 6px 10px; gap: 8px; }
+}
+.ann-bar-count {
+  background: var(--ann-yellow);
+  color: var(--ann-fg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.ann-bar button {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  white-space: nowrap;
+}
+.ann-bar button:hover { background: rgba(255,255,255,0.16); }
+.ann-bar button.primary {
+  background: var(--ann-yellow);
+  color: var(--ann-fg);
+  border-color: var(--ann-yellow);
+  font-weight: 600;
+}
+.ann-bar button.primary:hover { background: var(--ann-yellow-hover); }
+.ann-bar button.primary:disabled {
+  background: rgba(253,230,138,0.25);
+  cursor: not-allowed;
+  color: rgba(66,32,6,0.5);
+  border-color: rgba(253,230,138,0.25);
+}
+.ann-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Toast for transient feedback */
+.ann-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ann-bar-bg);
+  color: var(--ann-bar-fg);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+  box-shadow: var(--ann-shadow);
+  z-index: 10000;
+  animation: ann-toast-in 0.15s ease-out;
+}
+.ann-toast.success { border-left: 3px solid #86efac; }
+.ann-toast.warn { border-left: 3px solid #fcd34d; }
+.ann-toast.error { border-left: 3px solid #fca5a5; }
+@keyframes ann-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+
+/* History sidebar styles removed 2026-05-22 — pending UX rework. */
+
+/* Print: hide all annotation chrome but keep highlights */
+@media print {
+  .ann-bubble, .ann-bar, .ann-toast, .ann-gutter-marker { display: none !important; }
+  mark.ann-mark { background: #fff8d6; }
+  mark.ann-mark.exported { background: #fffceb; }
+}

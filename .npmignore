@@ -1,0 +1,9 @@
+.DS_Store
+.git
+.github
+node_modules
+*.log
+test/
+tests/
+e2e/
+*.bak

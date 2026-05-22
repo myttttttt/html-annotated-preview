@@ -1,0 +1,45 @@
+{
+  "name": "html-annotated-preview",
+  "version": "0.1.0",
+  "description": "A Claude Code skill that lets you annotate anything Claude writes — reports, specs, plans, and live previews. Zero install, no extension, no MCP.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "annotation",
+    "html",
+    "feedback",
+    "skill",
+    "agentic",
+    "vibe-coding",
+    "markdown-preview"
+  ],
+  "homepage": "https://github.com/myttttttt/html-annotated-preview#readme",
+  "bugs": {
+    "url": "https://github.com/myttttttt/html-annotated-preview/issues"
+  },
+  "license": "MIT",
+  "author": "Michael Mok",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myttttttt/html-annotated-preview.git"
+  },
+  "bin": {
+    "html-annotated-preview": "bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node bin/postinstall.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "SKILL.md",
+    "SKILL.zh.md",
+    "README.md",
+    "LICENSE",
+    "install.sh"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "preferGlobal": true
+}
