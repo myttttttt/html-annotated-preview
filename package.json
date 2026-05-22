@@ -1,6 +1,6 @@
 {
   "name": "html-annotated-preview",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A Claude Code skill that lets you annotate anything Claude writes — reports, specs, plans, and live previews. Zero install, no extension, no MCP.",
   "keywords": [
     "claude",
