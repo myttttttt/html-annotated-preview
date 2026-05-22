@@ -56,6 +56,73 @@ mark.ann-mark.fallback {
   border-bottom: 1px dashed rgba(180, 83, 9, 0.55);
 }
 
+/* Suggested — pre-annotation from AI self-review; user has not yet accepted/dismissed */
+mark.ann-mark.suggested {
+  background: rgba(147, 197, 253, 0.40);
+  text-decoration: underline wavy rgba(37, 99, 235, 0.55);
+  text-underline-offset: 3px;
+}
+mark.ann-mark.suggested:hover {
+  background: rgba(147, 197, 253, 0.60);
+}
+mark.ann-mark.suggested::before {
+  content: "✨ ";
+  font-size: 0.85em;
+  margin-right: 1px;
+  vertical-align: baseline;
+}
+
+.ann-rect.suggested {
+  background: rgba(147, 197, 253, 0.18);
+  border-color: #3b82f6;
+  border-style: dashed;
+}
+.ann-rect.suggested:hover {
+  background: rgba(147, 197, 253, 0.32);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.20);
+}
+.ann-rect.suggested .ann-rect-badge {
+  background: #3b82f6;
+}
+
+/* Bubble — when opened on a suggested annotation, show a clear "from AI" header */
+.ann-bubble.suggested-bubble {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.18);
+}
+.ann-bubble-ai-note {
+  background: rgba(251, 191, 36, 0.08);
+  border-left: 3px solid #fbbf24;
+  padding: 9px 12px;
+  margin: 0 0 10px 0;
+  font-size: 0.92em;
+  color: var(--ann-bubble-fg);
+  border-radius: 0 4px 4px 0;
+  line-height: 1.55;
+}
+.ann-bubble-ai-note strong {
+  color: #fbbf24;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.ann-btn-accept {
+  background: #fbbf24 !important;
+  color: #1f2937 !important;
+  border-color: #f59e0b !important;
+  font-weight: 600;
+}
+.ann-btn-accept:hover {
+  background: #f59e0b !important;
+}
+.ann-btn-dismiss {
+  color: #94a3b8;
+}
+.ann-btn-dismiss:hover {
+  color: #cbd5e1;
+}
+
+/* No light-mode override needed — bubble bg is always dark (#1c1917) regardless of OS theme. */
+
 /* ============================================================
  * Rectangle selection mode — for annotating design regions
  * ============================================================ */
@@ -410,4 +477,6 @@ mark.ann-pending {
   .ann-bubble, .ann-bar, .ann-toast, .ann-gutter-marker { display: none !important; }
   mark.ann-mark { background: #fff8d6; }
   mark.ann-mark.exported { background: #fffceb; }
+  mark.ann-mark.suggested { background: #e0eaff; text-decoration: none; }
+  mark.ann-mark.suggested::before { content: ""; }
 }

@@ -42,9 +42,11 @@
 
 ## Features
 
+- **AI pre-annotation** (v0.2) — Claude can run a self-review pass on its own draft and pre-highlight spans that warrant verification (unsourced figures, weak logic, ambiguous jargon). User Accepts or Dismisses each. Cuts the iteration loop by one round on substantive reports.
 - **Text annotation** — select any text, add a comment, get a yellow highlight (persisted in `localStorage`).
 - **Rectangle annotation** — click-drag any region (great for design / UI critique). Numbered orange-outlined boxes.
-- **Status state machine** — every annotation is **active** / **exported** / **done**. Successive iteration rounds never re-export the same annotation. Click any exported highlight to reactivate it.
+- **CSS live-edit** — open the bubble on any text/region, edit CSS inline, see changes instantly. Saved with the annotation so Claude knows what to reconcile in source.
+- **Status state machine** — every annotation is **suggested** / **active** / **exported** / **done**. Successive iteration rounds never re-export the same annotation. Click any exported highlight to reactivate it.
 - **Bilingual docs** (English + 繁體中文).
 - **Print-friendly** — chrome auto-hides; highlights remain in a softer shade.
 - **Zero dependencies on the runtime side** — pure vanilla JS + CSS. Only requires Python `markdown` for the (optional) md→html step.
@@ -153,17 +155,19 @@ html-annotated-preview/
 
 ## Related work · 同類工具對比
 
-| Tool | Form factor | Live URL | AI-coding native | OSS |
+| Tool | Form factor | Static `.html` | AI loop | OSS |
 |---|---|---|---|---|
-| **html-annotated-preview** | Claude Code skill (this repo) | ✅ via inject.py | ✅ | ✅ MIT |
-| [Vibe Annotations](https://www.vibe-annotations.com/) | Chrome extension | ✅ | via MCP | ❌ |
-| [Agentation](https://github.com/benjitaylor/agentation) | npm package | localhost only | via MCP | ✅ |
-| [Pointa.dev](https://www.pointa.dev/) | Chrome extension | localhost only | via MCP | ❌ |
+| **html-annotated-preview** | Claude Code skill (this repo) | ✅ double-click any .html | copy-paste markdown | ✅ MIT |
+| [Agentation](https://github.com/benjitaylor/agentation) | npm package + MCP mode | ❌ requires running app | MCP (bidirectional) or copy-paste | ✅ |
+| [Stagewise](https://github.com/stagewise-io/stagewise) | Browser toolbar → full IDE | ❌ requires dev server | direct to Cursor / Claude Code / Windsurf | ✅ |
+| [Vibe Annotations](https://www.vibe-annotations.com/) | Chrome extension | ❌ live URLs only | via MCP | ❌ |
+| [Browser Feedback MCP](https://github.com/itk-dev/mcp-claude-code-browser-feedback) | localhost daemon + widget | ❌ requires WebSocket server | via MCP | ✅ |
+| [Pointa.dev](https://www.pointa.dev/) | Chrome extension | ❌ localhost only | via MCP | ❌ |
 | [browser-annotations](https://github.com/wiebekaai/browser-annotations) | Chrome DevTools panel | ✅ | direct to Claude Code | ✅ |
-| Cursor 3 Design Mode | Built into Cursor IDE | ✅ | Cursor only | ❌ |
+| Cursor 3 Design Mode | Built into Cursor IDE | ❌ | Cursor only | ❌ |
 | [Plannotator](https://github.com/backnotprop/plannotator) | Claude Code plugin | ❌ (plans / diffs only) | ✅ | ✅ |
 
-This repo's niche: **no Chrome extension required**, no MCP setup, works on the user's HTML reports as much as on live previews, and stays installable inside `~/.claude/skills/` like any other native Claude Code skill.
+**This repo's niche**: the only tool that works on a flat `.html` file you double-click from Finder. No Chrome extension, no MCP server, no dev server, no WebSocket. Designed for the "I read a markdown report and want to give batch feedback" loop — not just the "iterate on a live React app" loop.
 
 ---
 

@@ -36,13 +36,17 @@ Annotation 存在 `localStorage`，按 document path 分 key。每個 annotation
 
 ## Pipeline
 
-三步，全部由 skill 自帶：
+四步。Step 1.5 為可選但強烈建議 — 讓 Claude 將自己對報告的不確定處標出來，讓 user 直接見到。
 
 ```bash
 # 1. markdown → HTML（GitHub 風格、支援 dark mode、附 CJK font）
 python3 ~/.claude/skills/html-annotated-preview/md_to_html.py report.md
 
-# 2. Inject annotation overlay（idempotent）
+# 1.5. （可選）AI 自審 pass — 詳見下面「AI pre-annotation」章節
+#       Claude 將 report.preann.json 寫到 .md 同一目錄
+#       inject.py 會自動偵測並讀取
+
+# 2. Inject annotation overlay（idempotent，自動讀取 .preann.json）
 python3 ~/.claude/skills/html-annotated-preview/inject.py report.html
 
 # 3. 在預設 browser 開啟
@@ -51,7 +55,54 @@ xdg-open report.html  # Linux
 start report.html     # Windows
 ```
 
-當 Claude deliver 一份 markdown 報告 / 分析時，預設應該將這三步 fold 入交付流程。
+當 Claude deliver 一份 markdown 報告 / 分析時，預設應該將這 3 步（及合適時加入 1.5）fold 入交付流程。
+
+## AI pre-annotation（Claude 自審 pass）
+
+當 Claude deliver 一份重要 markdown 報告（研究、市場分析、spec、plan，任何 > 500 字、claims / 邏輯 matter 的文件），請在執行 `inject.py` 之前產生一份 `<report-stem>.preann.json` 放在同一個 directory。Inject.py 會自動讀取，並將每個 entry 渲染成淺藍 ✨「suggested」highlight，user 可以 Accept（轉成 active feedback）或 Dismiss。
+
+這是 Claude 將自己的不確定處主動 surface 給 user 的機會 — 將 iteration loop 縮短一輪。
+
+**要標的內容**（謹慎挑選 — 一份典型報告 3-8 個，最多 ~15 個）：
+
+- **無 source 的 quantitative claims** — 數字、百分比、市值、預測，你沒有直接 verify 的
+- **邏輯跳躍** — 推論依賴你沒有完全把握的假設
+- **過度自信的 forecast** — 預測語氣強於證據
+- **與你 prior data 衝突** — 你記憶過時 / contested / sources 不一致的位置
+- **行話可能與 user vocabulary 不 match** — 業外讀者會誤解的 term
+- **依賴 user-specific context 的段落** — 你沒有用戶的 portfolio / team / 定義
+
+**不要標**：copy-edit 細節、文體偏好、user 自己改 .md 還快過走 annotation loop 的事情。Bar：「user 30 秒澄清會否 materially 改善這段？」
+
+**File format** — `<report-stem>.preann.json`：
+
+```json
+{
+  "doc": { "path": "report.md", "title": "Q2 市場掃描" },
+  "generatedAt": "2026-05-23T03:12:00Z",
+  "annotations": [
+    {
+      "id": "ai_q2scan_001",
+      "kind": "text",
+      "quote": "BTC 將在 Q3 2026 達到 $200K",
+      "section": "Section 3 — Bull case",
+      "intent": "question",
+      "severity": "important",
+      "comment": "無 source — consensus forecast 多數 cluster 在 $150K。請確認 source / 你的 conviction level。"
+    }
+  ]
+}
+```
+
+**必填**：`id`（穩定、唯一）、`kind`（"text" 或 "rect"）、`quote`（rendered HTML 內逐字 match 的子字串）、`comment`（你的 reasoning）。
+
+**可選**：`section`、`intent`（fix / change / question / approve）、`severity`（blocking / important / suggestion）。
+
+**Quote 匹配**：用 5-30 字 unambiguous 子字串。避免出現多次的 quote。CJK 字直接使用，無特別處理。
+
+**Id 穩定性**：regenerate `.preann.json` 時 reuse 同一個 id。skill 記住 user dismiss 過的 id，stable id 防止 dismissed suggestion 重複出現。
+
+**不做 pre-annotation**：< 500 字、純 code/config、README/SKILL.md/canonical doc、或你對所有 claims 都很高 confidence。寧可不出 anything 也好過 spam user。
 
 ## 何時觸發
 

@@ -36,13 +36,17 @@ This skill lets the user mark up everything in one pass, then paste a single str
 
 ## Pipeline
 
-Three steps, all bundled with the skill:
+Four steps. Step 1.5 is optional but strongly recommended — it surfaces Claude's own uncertainty as actionable highlights before the user even reads.
 
 ```bash
 # 1. markdown → HTML (GitHub-style, dark mode aware, CJK font stack)
 python3 ~/.claude/skills/html-annotated-preview/md_to_html.py report.md
 
-# 2. Inject the annotation overlay (idempotent)
+# 1.5. (OPTIONAL) AI self-review pass — see "AI pre-annotation" section below.
+#      Claude writes report.preann.json next to report.md/report.html.
+#      inject.py auto-detects it.
+
+# 2. Inject the annotation overlay (idempotent, auto-loads .preann.json if present)
 python3 ~/.claude/skills/html-annotated-preview/inject.py report.html
 
 # 3. Open in the default browser
@@ -51,7 +55,63 @@ xdg-open report.html  # Linux
 start report.html     # Windows
 ```
 
-When Claude delivers a markdown report or analysis, it should fold steps 1–3 into the build by default.
+When Claude delivers a markdown report or analysis, it should fold steps 1–3 (and 1.5 when appropriate) into the build by default.
+
+## AI pre-annotation (Claude self-review pass)
+
+When you (Claude) deliver a substantive markdown report — research, market analysis, spec, plan, anything > 500 words where claims and reasoning matter — produce a `<report-stem>.preann.json` file in the same directory **before** running `inject.py`. The injector auto-loads it and seeds the overlay with light-blue "✨ suggested" highlights that the user can Accept (promotes to active feedback) or Dismiss.
+
+This is your chance to flag your own uncertainty to the user — making the iteration loop one round shorter.
+
+**What to flag** (be selective — 3-8 entries for a typical report, max ~15):
+
+- **Unsourced quantitative claims** — figures, percentages, market caps, projections you couldn't directly verify
+- **Logical leaps** — places where the reasoning depends on assumptions you weren't fully confident in
+- **Speculative forecasts** — predictions presented with more certainty than the evidence supports
+- **Conflicting prior data** — places where your knowledge is stale, contested, or you noticed sources disagree
+- **Jargon that may not match the user's vocabulary** — terms a reader outside the field may misread
+- **Sections that depend on user-specific context** you don't have (their portfolio, their team, their definitions)
+
+**What NOT to flag**: trivial copy-edit nits, stylistic preferences, anything the user can fix faster by editing the markdown directly than by going through the annotation loop. The bar is "would a 30-second clarification from the user materially improve this section?"
+
+**File format** — `<report-stem>.preann.json`:
+
+```json
+{
+  "doc": { "path": "report.md", "title": "Q2 Market Scan" },
+  "generatedAt": "2026-05-23T03:12:00Z",
+  "annotations": [
+    {
+      "id": "ai_q2scan_001",
+      "kind": "text",
+      "quote": "BTC will reach $200K by Q3 2026",
+      "section": "Section 3 — Bull case",
+      "intent": "question",
+      "severity": "important",
+      "comment": "Unsourced — most consensus forecasts cluster near $150K. Please confirm source / your conviction level."
+    },
+    {
+      "id": "ai_q2scan_002",
+      "kind": "text",
+      "quote": "Yen carry unwind 2.0",
+      "section": "Section 7 — Risks",
+      "intent": "fix",
+      "severity": "suggestion",
+      "comment": "Reference to 2024-08 episode is implicit — consider whether reader needs the base rate / case study."
+    }
+  ]
+}
+```
+
+**Required fields** per annotation: `id` (stable, unique, alphanumeric), `kind` ("text" or "rect"), `quote` (exact substring of the rendered HTML text — case-sensitive, must match verbatim), `comment` (your reasoning, written as if speaking to the user).
+
+**Optional fields**: `section` (heading the quote sits under, helps user navigate), `intent` (`fix` / `change` / `question` / `approve`), `severity` (`blocking` / `important` / `suggestion`).
+
+**Quote matching**: The annotation engine uses quote-text search (fuzzy XPath fallback). Use a short, unambiguous substring (~5-30 words). Avoid quotes that appear multiple times. If the report uses CJK characters, the substring works directly — no special handling needed.
+
+**Id stability**: Use the same `id` if you regenerate `.preann.json` for an updated draft. The skill records dismissals against the id, so a stable id prevents dismissed suggestions from reappearing on every regeneration.
+
+**Skip pre-annotation** when: the markdown is < 500 words, is pure code / config, is a README / SKILL.md / canonical doc, or you're highly confident in every claim. Better to ship nothing than to spam the user with low-signal flags.
 
 ## When to invoke
 

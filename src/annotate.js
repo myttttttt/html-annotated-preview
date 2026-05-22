@@ -13,10 +13,12 @@
   "use strict";
 
   const STORAGE_KEY = "html-annotations::" + location.pathname;
+  const PRESEED_KEY = "html-annotations::preseed-applied::" + location.pathname;
   const DOC_TITLE = document.title || "untitled";
 
   // ----- state -----
   let annotations = loadAnnotations();
+  mergePreseed();              // inject AI suggestions (idempotent per preseed-signature)
   let activeBubble = null;
   let rectMode = false;        // toggled by user via bottom-bar button
   let rectDraft = null;        // { startX, startY, el } during drag
@@ -32,6 +34,58 @@
   }
   function saveAnnotations() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(annotations));
+  }
+
+  // ----- AI pre-annotation seed -----
+  // window.__annPreseed is injected by inject.py when a sibling .preann.json is found.
+  // Each entry is rendered as a "suggested" annotation (light-blue) until the user
+  // clicks Accept (becomes regular active) or Dismiss (removed entirely).
+  //
+  // Re-runs are idempotent: a signature of the preseed payload is recorded in
+  // localStorage so a regenerated .preann.json with new content can introduce new
+  // suggestions without duplicating ones the user has already accepted/dismissed.
+  function mergePreseed() {
+    const seed = window.__annPreseed;
+    if (!Array.isArray(seed) || seed.length === 0) return;
+    const existingIds = new Set(annotations.map(a => a.id));
+    const seenSig = (function() {
+      try { return JSON.parse(localStorage.getItem(PRESEED_KEY) || "[]"); } catch { return []; }
+    })();
+    const seenSet = new Set(seenSig);
+    let added = 0;
+    seed.forEach(s => {
+      // Each preseed must have a stable id so user dismissals stick across reloads.
+      if (!s || !s.id) return;
+      if (existingIds.has(s.id)) return;     // already merged previously
+      if (seenSet.has(s.id)) return;         // user dismissed in a prior session
+      const ann = {
+        id: s.id,
+        kind: s.kind || "text",
+        suggested: true,
+        intent: s.intent || "question",
+        severity: s.severity || "important",
+        comment: s.comment || "",
+        section: s.section || "",
+        aiNote: s.comment || "",             // preserve original AI note even after Accept
+        createdAt: s.createdAt || new Date().toISOString(),
+        done: false,
+        exported: false,
+      };
+      if (s.kind === "rect" && s.rect) ann.rect = s.rect;
+      if (s.range) ann.range = s.range;
+      if (s.quote || (s.range && s.range.text)) {
+        ann.range = ann.range || {};
+        ann.range.text = s.quote || ann.range.text;
+      }
+      annotations.push(ann);
+      added += 1;
+    });
+    if (added > 0) {
+      saveAnnotations();
+      // Record that we've seen these ids (so dismissals stick)
+      const merged = Array.from(new Set([...seenSig, ...seed.map(s => s && s.id).filter(Boolean)]));
+      try { localStorage.setItem(PRESEED_KEY, JSON.stringify(merged)); } catch {}
+    }
   }
 
   // ----- range serialization (XPath + offset) -----
@@ -320,6 +374,7 @@
         if (a.done) marks.forEach(m => m.classList.add('done'));
         if (a.exported && !a.done) marks.forEach(m => m.classList.add('exported'));
         if (a._restoredByFallback) marks.forEach(m => m.classList.add('fallback'));
+        if (a.suggested) marks.forEach(m => m.classList.add('suggested'));
       } else {
         staleCount += 1;
       }
@@ -355,7 +410,7 @@
   function renderRectOverlay(ann, idx) {
     const layer = ensureRectLayer();
     const box = document.createElement("div");
-    const stateClass = ann.done ? " done" : (ann.exported ? " exported" : "");
+    const stateClass = ann.done ? " done" : (ann.exported ? " exported" : (ann.suggested ? " suggested" : ""));
     box.className = "ann-rect" + stateClass;
     box.dataset.annId = ann.id;
     box.style.left = ann.rect.x + "px";
@@ -440,25 +495,42 @@
   function showBubbleAt(rect, opts) {
     dismissBubble();
     const b = document.createElement("div");
-    b.className = "ann-bubble";
+    const isSuggested = !!opts.suggested;
+    b.className = "ann-bubble" + (isSuggested ? " suggested-bubble" : "");
+    const aiNoteBlock = isSuggested && opts.aiNote
+      ? `<div class="ann-bubble-ai-note">✨ <strong>Claude:</strong> ${escapeHtml(opts.aiNote)}</div>`
+      : "";
+    const actionsHtml = isSuggested
+      ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="ann-btn ann-btn-dismiss" data-action="dismiss" title="Dismiss this suggestion (won't reappear)">✗ Dismiss</button>
+            <button class="ann-btn" data-action="cancel">Cancel</button>
+            <button class="ann-btn ann-btn-accept" data-action="accept" title="Accept — promotes to your active feedback">✓ Accept</button>
+          </div>`
+      : `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            ${opts.targetEl ? '<button class="ann-btn ann-btn-css" data-action="toggle-css" title="Live-edit CSS for this element">🎨 Edit CSS</button>' : ''}
+            ${opts.id && opts.exported ? '<button class="ann-btn ann-btn-reactivate" data-action="reactivate" title="Put this annotation back into the active queue">↺ Reactivate</button>' : ''}
+            ${opts.id ? '<button class="ann-btn ann-btn-done' + (opts.done ? ' active' : '') + '" data-action="toggle-done">' + (opts.done ? '↻ Undone' : '✓ Done') + '</button>' : ''}
+            ${opts.id ? '<button class="ann-btn ann-btn-danger" data-action="delete">Delete</button>' : ""}
+            <button class="ann-btn" data-action="cancel">Cancel</button>
+            <button class="ann-btn ann-btn-primary" data-action="save">Save</button>
+          </div>`;
+    const headerLabel = isSuggested
+      ? "✨ AI suggestion"
+      : (opts.id ? (opts.exported ? "exported · history" : "edit") : "new");
     b.innerHTML = `
       <div class="ann-bubble-quote" style="font-size:11px;opacity:0.6;margin-bottom:6px;max-height:60px;overflow:hidden">${escapeHtml((opts.quote || "").slice(0, 200))}${(opts.quote||"").length > 200 ? "…" : ""}</div>
-      <textarea placeholder="comment… (Enter = save, Shift+Enter = newline, Esc = cancel)" autofocus>${escapeHtml(opts.comment || "")}</textarea>
+      ${aiNoteBlock}
+      <textarea placeholder="${isSuggested ? "Edit Claude's note before accepting, or accept as-is" : "comment… (Enter = save, Shift+Enter = newline, Esc = cancel)"}" autofocus>${escapeHtml(opts.comment || "")}</textarea>
       <div class="ann-bubble-css" data-role="css-panel" style="display:none;margin-top:8px">
         <div class="ann-bubble-css-target" data-role="css-target" style="font-size:10px;opacity:0.5;margin-bottom:4px;font-family:ui-monospace,Menlo,monospace"></div>
         <textarea class="ann-bubble-css-input" data-role="css-input" placeholder="CSS overrides — e.g.&#10;color: #1d4ed8;&#10;font-size: 18px;" rows="3"></textarea>
         <div style="font-size:10px;opacity:0.45;margin-top:3px">↑ Live preview. Saved as part of the prompt. Refresh reverts visuals.</div>
       </div>
       <div class="ann-bubble-actions">
-        <div class="left">${opts.id ? (opts.exported ? "exported · history" : "edit") : "new"}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-          ${opts.targetEl ? '<button class="ann-btn ann-btn-css" data-action="toggle-css" title="Live-edit CSS for this element">🎨 Edit CSS</button>' : ''}
-          ${opts.id && opts.exported ? '<button class="ann-btn ann-btn-reactivate" data-action="reactivate" title="Put this annotation back into the active queue">↺ Reactivate</button>' : ''}
-          ${opts.id ? '<button class="ann-btn ann-btn-done' + (opts.done ? ' active' : '') + '" data-action="toggle-done">' + (opts.done ? '↻ Undone' : '✓ Done') + '</button>' : ''}
-          ${opts.id ? '<button class="ann-btn ann-btn-danger" data-action="delete">Delete</button>' : ""}
-          <button class="ann-btn" data-action="cancel">Cancel</button>
-          <button class="ann-btn ann-btn-primary" data-action="save">Save</button>
-        </div>
+        <div class="left">${headerLabel}</div>
+        ${actionsHtml}
       </div>`;
     b.style.left = (rect.left + window.scrollX) + "px";
     b.style.top = (rect.top + window.scrollY - 8 - 150) + "px"; // approx height 150
@@ -520,19 +592,39 @@
       if (cssSnapshot) revertCssEdit(opts.targetEl, cssSnapshot);
       dismissBubble();
     });
-    b.querySelector('[data-action="save"]').addEventListener("click", () => {
-      const text = ta.value.trim();
-      if (!text) { dismissBubble(); return; }
-      // CSS edit is kept applied (annotation records the override so it's reproducible)
-      opts.onSave(text, { cssOverride: cssApplied || null });
-      dismissBubble();
-    });
+    const saveBtn = b.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.addEventListener("click", () => {
+        const text = ta.value.trim();
+        if (!text) { dismissBubble(); return; }
+        opts.onSave(text, { cssOverride: cssApplied || null });
+        dismissBubble();
+      });
+    }
+    const acceptBtn = b.querySelector('[data-action="accept"]');
+    if (acceptBtn) {
+      acceptBtn.addEventListener("click", () => {
+        const text = ta.value.trim();
+        if (!text) { dismissBubble(); return; }
+        opts.onAccept(text);
+        dismissBubble();
+      });
+    }
+    const dismissBtn = b.querySelector('[data-action="dismiss"]');
+    if (dismissBtn) {
+      dismissBtn.addEventListener("click", () => {
+        opts.onDismiss();
+        dismissBubble();
+      });
+    }
     if (opts.id) {
-      b.querySelector('[data-action="delete"]').addEventListener("click", () => {
+      const deleteBtn = b.querySelector('[data-action="delete"]');
+      if (deleteBtn) deleteBtn.addEventListener("click", () => {
         opts.onDelete();
         dismissBubble();
       });
-      b.querySelector('[data-action="toggle-done"]').addEventListener("click", () => {
+      const toggleDoneBtn = b.querySelector('[data-action="toggle-done"]');
+      if (toggleDoneBtn) toggleDoneBtn.addEventListener("click", () => {
         opts.onToggleDone();
         dismissBubble();
       });
@@ -545,10 +637,11 @@
       }
     }
     ta.addEventListener("keydown", e => {
-      // Enter alone = save; Shift+Enter = newline; Esc = cancel
+      // Enter alone = primary action (save / accept); Shift+Enter = newline; Esc = cancel
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        b.querySelector('[data-action="save"]').click();
+        const primary = b.querySelector('[data-action="save"]') || b.querySelector('[data-action="accept"]');
+        if (primary) primary.click();
       } else if (e.key === "Escape") {
         e.preventDefault();
         dismissBubble();
@@ -590,6 +683,8 @@
       comment: ann.comment,
       done: !!ann.done,
       exported: !!ann.exported,
+      suggested: !!ann.suggested,
+      aiNote: ann.aiNote || null,
       targetEl: existingTargetEl,
       cssOverride: ann.cssOverride || null,
       onSave: (text, extras) => {
@@ -598,6 +693,21 @@
         ann.updatedAt = Date.now();
         saveAnnotations();
         updateBar();
+      },
+      onAccept: (text) => {
+        ann.comment = text;
+        ann.suggested = false;
+        ann.updatedAt = Date.now();
+        saveAnnotations();
+        renderAll();
+        toast("Suggestion accepted — now in your active queue", "success");
+      },
+      onDismiss: () => {
+        // Recorded in PRESEED_KEY (already done at merge time), so reload won't reintroduce.
+        annotations = annotations.filter(a => a.id !== annId);
+        saveAnnotations();
+        renderAll();
+        toast("Suggestion dismissed", "info");
       },
       onDelete: () => {
         annotations = annotations.filter(a => a.id !== annId);
@@ -804,7 +914,9 @@
 
   function updateBar() {
     const n = annotations.length;
-    const activeCount = annotations.filter(a => !a.done && !a.exported).length;
+    // Active = user-confirmed, not yet exported, not done, not still a suggestion
+    const activeCount = annotations.filter(a => !a.done && !a.exported && !a.suggested).length;
+    const suggestedCount = annotations.filter(a => a.suggested).length;
     const exportedCount = annotations.filter(a => a.exported && !a.done).length;
     const doneCount = annotations.filter(a => a.done).length;
     const hint = bar.querySelector('[data-role="hint"]');
@@ -821,13 +933,13 @@
     } else {
       hint.style.display = "none";
       count.style.display = "";
-      // Show: active count, with breakdown if there are exported/done
-      const hasHistory = exportedCount > 0 || doneCount > 0;
+      const hasHistory = exportedCount > 0 || doneCount > 0 || suggestedCount > 0;
       count.textContent = hasHistory ? `${activeCount} / ${n}` : `${n}`;
       label.style.display = "";
       const labelParts = [];
       if (hasHistory) {
         labelParts.push("active");
+        if (suggestedCount > 0) labelParts.push(`✨ ${suggestedCount} suggested`);
         if (exportedCount > 0) labelParts.push(`${exportedCount} exported`);
         if (doneCount > 0) labelParts.push(`${doneCount} done`);
         label.textContent = labelParts.join(" · ");
@@ -836,7 +948,6 @@
       }
       exportBtn.style.display = "";
       copyBtn.style.display = "";
-      // Update Copy button label to reflect active count
       copyBtn.textContent = activeCount > 0
         ? `Copy ${activeCount} new`
         : "Copy as Prompt";
@@ -854,8 +965,9 @@
   }
 
   function buildPayload(opts) {
-    // onlyActive = annotations that haven't been exported yet AND aren't marked done
-    const filter = opts && opts.onlyActive ? (a => !a.done && !a.exported) : (() => true);
+    // onlyActive = annotations that haven't been exported yet, aren't marked done,
+    //              and aren't still pending AI suggestion (user must Accept first)
+    const filter = opts && opts.onlyActive ? (a => !a.done && !a.exported && !a.suggested) : (() => true);
     return {
       doc: { path: location.pathname, title: DOC_TITLE, href: location.href },
       generatedAt: new Date().toISOString(),
