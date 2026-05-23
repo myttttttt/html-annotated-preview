@@ -95,10 +95,39 @@ The postinstall hook auto-detects existing installs by checking `.installed-vers
 html-annotated-preview check
 ```
 
-If `npm install -g` silently skips the postinstall (rare; happens in some npm versions or `--ignore-scripts` setups), force a refresh:
+If `check` reports a version mismatch, force a refresh:
 
 ```bash
 html-annotated-preview install
+```
+
+#### ⚠️ If you use `ignore-scripts=true`
+
+Some users — corporate / security-conscious setups, or anyone following npm hardening advice — set `ignore-scripts=true` in `~/.npmrc`. With that flag, **npm will not run the postinstall hook of any package**, so `npm install -g` won't update the skill files. The package itself is updated in npm's global lib, but the skill directory at `~/.claude/skills/html-annotated-preview/` stays at the old version. Symptom: you upgraded but Claude Code still loads the old SKILL.md.
+
+The fix is to run the explicit install command after every upgrade:
+
+```bash
+npm install -g html-annotated-preview@latest
+html-annotated-preview install
+```
+
+To check whether you're affected:
+
+```bash
+npm config get ignore-scripts   # if it prints "true", you are
+```
+
+For a one-liner alias in `~/.zshrc` / `~/.bashrc`:
+
+```bash
+alias hap-update='npm i -g html-annotated-preview@latest && html-annotated-preview install'
+```
+
+Or run an install once with the flag overridden (per-invocation, doesn't change global config):
+
+```bash
+npm install -g html-annotated-preview@latest --ignore-scripts=false
 ```
 
 ---
