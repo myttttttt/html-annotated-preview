@@ -83,6 +83,24 @@ After install, restart Claude Code so the skill is picked up.
 
 **Dependencies**: Python 3.8+ with the `markdown` package (`pip3 install markdown`). That's it.
 
+### Upgrading
+
+```bash
+npm install -g html-annotated-preview@latest
+```
+
+The postinstall hook auto-detects existing installs by checking `.installed-version` and overwrites only the files that actually changed (creating timestamped `.bak.<ts>` backups). To verify your local install matches the latest npm release:
+
+```bash
+html-annotated-preview check
+```
+
+If `npm install -g` silently skips the postinstall (rare; happens in some npm versions or `--ignore-scripts` setups), force a refresh:
+
+```bash
+html-annotated-preview install
+```
+
 ---
 
 ## Quick start · 試一試
